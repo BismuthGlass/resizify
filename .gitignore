@@ -1,0 +1,27 @@
+# Runtime output
+/output/
+
+# Go build artifacts
+/resizify
+*.exe
+*.test
+*.out
+
+# Frontend dependencies and generated build
+/resizify-webapp/node_modules/
+/resizify-webapp/dist/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
