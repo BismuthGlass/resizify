@@ -3,6 +3,7 @@ import { Component, Show, createSignal, onCleanup, onMount } from 'solid-js';
 type ImageInfo = { id: string; name: string; width: number; height: number; url: string };
 type Frame = { x: number; y: number; w: number; h: number };
 type Drag = { kind: 'frame' | 'pan' | 'resize'; handle?: string; sx: number; sy: number; frame: Frame; panX: number; panY: number };
+type OutputInfo = { name: string; url: string; created: string };
 
 const ratios = [{ label: '1 : 1', value: 1 }, { label: '4 : 3', value: 4 / 3 }, { label: '3 : 2', value: 3 / 2 }, { label: '16 : 9', value: 16 / 9 }];
 
@@ -22,7 +23,17 @@ const App: Component = () => {
   const [message, setMessage] = createSignal('');
   const [error, setError] = createSignal('');
   const [dropActive, setDropActive] = createSignal(false);
+  const [outputs, setOutputs] = createSignal<OutputInfo[]>([]);
+  const [preview, setPreview] = createSignal<OutputInfo>();
   let spaceDown = false;
+  let observer: ResizeObserver | undefined;
+
+  const editorRef = (element: HTMLDivElement) => {
+    editor = element;
+    observer?.disconnect();
+    observer = new ResizeObserver(([entry]) => setViewport({ w: entry.contentRect.width, h: entry.contentRect.height }));
+    observer.observe(element);
+  };
 
   const activeRatio = () => {
     const r = ratios[ratioIndex()].value;
@@ -112,6 +123,13 @@ const App: Component = () => {
     setImage(undefined); setMessage(''); setError('');
   };
 
+  const loadOutputs = async () => {
+    try {
+      const response = await fetch('/api/outputs');
+      if (response.ok) setOutputs(await response.json());
+    } catch {}
+  };
+
   const openOutput = async () => {
     setError('');
     try {
@@ -130,6 +148,7 @@ const App: Component = () => {
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Save failed');
       setMessage(`Saved ${body.name}`);
+      await loadOutputs();
     } catch (e) { setError(e instanceof Error ? e.message : 'Save failed'); }
     finally { setBusy(false); }
   };
@@ -173,15 +192,15 @@ const App: Component = () => {
   };
 
   onMount(() => {
-    const observer = new ResizeObserver(([entry]) => setViewport({ w: entry.contentRect.width, h: entry.contentRect.height }));
-    observer.observe(editor);
+    loadOutputs();
     const down = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPreview(undefined);
       if (e.code === 'Space' && !(e.target instanceof HTMLInputElement)) { spaceDown = true; e.preventDefault(); }
       if (e.key.toLowerCase() === 'f' && !(e.target instanceof HTMLInputElement) && image()) flip();
     };
     const up = (e: KeyboardEvent) => { if (e.code === 'Space') spaceDown = false; };
     window.addEventListener('keydown', down); window.addEventListener('keyup', up);
-    onCleanup(() => { observer.disconnect(); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); });
+    onCleanup(() => { observer?.disconnect(); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); });
   });
 
   return <div class="app-shell">
@@ -220,7 +239,7 @@ const App: Component = () => {
         </aside>
 
         <section class="canvas-area">
-          <div class={`editor ${drag()?.kind === 'pan' ? 'panning' : ''}`} ref={editor} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onWheel={wheel} onPointerDown={e => { if (e.target === editor) startDrag(e, 'pan'); }}>
+          <div class={`editor ${drag()?.kind === 'pan' ? 'panning' : ''}`} ref={editorRef} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onWheel={wheel} onPointerDown={e => { if (e.target === editor) startDrag(e, 'pan'); }}>
             <div class="image-wrap" style={{ left: `${origin().x}px`, top: `${origin().y}px`, width: `${image()!.width * scale()}px`, height: `${image()!.height * scale()}px` }}><img src={image()!.url} draggable={false} /></div>
             <div class="shade top" style={{ height: `${Math.max(0, screenFrame().y)}px` }}></div>
             <div class="crop-frame" style={{ left: `${screenFrame().x}px`, top: `${screenFrame().y}px`, width: `${screenFrame().w}px`, height: `${screenFrame().h}px` }} onPointerDown={e => startDrag(e, 'frame')}>
@@ -231,8 +250,16 @@ const App: Component = () => {
           </div>
           <div class="canvas-footer"><div class="tip"><span>✦</span> Drag frame to position · Drag corners to resize · Scroll to zoom · Space + drag to pan</div><div class="zoom-control"><button onClick={() => setZoom(z => Math.max(.2, z - .1))}>−</button><input type="range" min=".2" max="5" step=".01" value={zoom()} onInput={e => setZoom(+e.currentTarget.value)} /><span>{Math.round(zoom() * 100)}%</span><button onClick={resetView}>FIT</button></div></div>
         </section>
+
+        <aside class="recent-panel">
+          <div class="recent-heading"><span>LATEST OUTPUTS</span><small>{outputs().length}</small></div>
+          <Show when={outputs().length} fallback={<div class="recent-empty"><span>□</span><p>Saved images will appear here.</p></div>}>
+            <div class="recent-grid">{outputs().map(output => <button class="recent-image" title={output.name} onClick={() => setPreview(output)}><img src={output.url} loading="lazy" /><span>{output.name}</span></button>)}</div>
+          </Show>
+        </aside>
       </main>
     </Show>
+    <Show when={preview()}>{output => <div class="preview-backdrop" onClick={() => setPreview(undefined)}><div class="preview-modal" onClick={e => e.stopPropagation()}><div class="preview-header"><span>{output().name}</span><button onClick={() => setPreview(undefined)} aria-label="Close preview">×</button></div><div class="preview-image-wrap"><img src={output().url} /></div></div></div>}</Show>
     <input ref={input} type="file" accept="image/*" hidden onChange={e => upload(e.currentTarget.files?.[0])} />
   </div>;
 };

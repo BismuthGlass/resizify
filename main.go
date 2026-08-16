@@ -14,10 +14,12 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -52,6 +54,12 @@ type saveRequest struct {
 	Height float64 `json:"height"`
 }
 
+type outputInfo struct {
+	Name    string    `json:"name"`
+	URL     string    `json:"url"`
+	Created time.Time `json:"created"`
+}
+
 func main() {
 	port := flag.Int("port", 0, "HTTP port (overrides RESIZIFY_ADDR)")
 	openBrowser := flag.Bool("open", false, "open the application in the default browser")
@@ -80,6 +88,8 @@ func main() {
 	mux.HandleFunc("POST /api/upload", a.upload)
 	mux.HandleFunc("GET /api/images/{id}", a.image)
 	mux.HandleFunc("POST /api/save", a.save)
+	mux.HandleFunc("GET /api/outputs", a.outputs)
+	mux.HandleFunc("GET /api/outputs/{name}", a.outputImage)
 	mux.HandleFunc("POST /api/open-output", a.openOutput)
 	mux.HandleFunc("DELETE /api/images/{id}", a.remove)
 
@@ -225,7 +235,57 @@ func (a *app) save(w http.ResponseWriter, r *http.Request) {
 		fail(w, "ImageMagick could not save the image", 500)
 		return
 	}
-	writeJSON(w, map[string]string{"name": filepath.Base(output), "path": output})
+	outputName := filepath.Base(output)
+	writeJSON(w, map[string]string{"name": outputName, "path": output, "url": "/api/outputs/" + url.PathEscape(outputName)})
+}
+
+func (a *app) outputs(w http.ResponseWriter, _ *http.Request) {
+	entries, err := os.ReadDir(a.outDir)
+	if err != nil {
+		fail(w, "Could not read the output directory", 500)
+		return
+	}
+	items := make([]outputInfo, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() || !isOutputImage(entry.Name()) {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		items = append(items, outputInfo{Name: entry.Name(), URL: "/api/outputs/" + url.PathEscape(entry.Name()), Created: info.ModTime()})
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].Created.After(items[j].Created) })
+	if len(items) > 12 {
+		items = items[:12]
+	}
+	writeJSON(w, items)
+}
+
+func (a *app) outputImage(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	if name == "" || filepath.Base(name) != name || !isOutputImage(name) {
+		http.NotFound(w, r)
+		return
+	}
+	path := filepath.Join(a.outDir, name)
+	if info, err := os.Stat(path); err != nil || info.IsDir() {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", mime.TypeByExtension(strings.ToLower(filepath.Ext(name))))
+	w.Header().Set("Cache-Control", "private, max-age=3600")
+	http.ServeFile(w, r, path)
+}
+
+func isOutputImage(name string) bool {
+	switch strings.ToLower(filepath.Ext(name)) {
+	case ".jpg", ".jpeg", ".png", ".webp":
+		return true
+	default:
+		return false
+	}
 }
 
 func (a *app) openOutput(w http.ResponseWriter, _ *http.Request) {
