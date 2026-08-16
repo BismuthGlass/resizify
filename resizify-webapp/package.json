@@ -1,7 +1,8 @@
 {
-  "name": "vite-template-solid",
-  "version": "0.0.0",
-  "description": "",
+  "name": "resizify-webapp",
+  "version": "0.1.0",
+  "description": "Web interface for Resizify",
+  "repository": "https://github.com/BismuthGlass/resizify",
   "type": "module",
   "scripts": {
     "start": "vite",
