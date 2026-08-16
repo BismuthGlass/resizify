@@ -199,8 +199,13 @@ const App: Component = () => {
       if (e.key.toLowerCase() === 'f' && !(e.target instanceof HTMLInputElement) && image()) flip();
     };
     const up = (e: KeyboardEvent) => { if (e.code === 'Space') spaceDown = false; };
-    window.addEventListener('keydown', down); window.addEventListener('keyup', up);
-    onCleanup(() => { observer?.disconnect(); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); });
+    const paste = (e: ClipboardEvent) => {
+      const item = Array.from(e.clipboardData?.items || []).find(item => item.kind === 'file' && item.type.startsWith('image/'));
+      const file = item?.getAsFile() || Array.from(e.clipboardData?.files || []).find(file => file.type.startsWith('image/'));
+      if (file && !busy()) { e.preventDefault(); upload(file); }
+    };
+    window.addEventListener('keydown', down); window.addEventListener('keyup', up); window.addEventListener('paste', paste);
+    onCleanup(() => { observer?.disconnect(); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('paste', paste); });
   });
 
   const RecentPanel: Component = () => <aside class="recent-panel">
@@ -227,7 +232,7 @@ const App: Component = () => {
           <h1>Frame it <em>your way.</em></h1>
           <p>Crop, extend, and resize images to exact aspect ratios.<br />No guesswork. Just the frame you need.</p>
           <button class="primary upload-button" disabled={busy()} onClick={() => input.click()}>{busy() ? 'UPLOADING…' : 'CHOOSE AN IMAGE'} <b>↗</b></button>
-          <span class="drop-hint">or drop an image anywhere here · max 100 MB</span>
+          <span class="drop-hint">or drop or paste an image here · max 100 MB</span>
           <Show when={error()}><div class="alert error">{error()}</div></Show>
           <div class="formats"><span>1 : 1</span><i></i><span>4 : 3</span><i></i><span>3 : 2</span><i></i><span>16 : 9</span></div>
         </section>
@@ -256,7 +261,7 @@ const App: Component = () => {
               <span class="frame-badge">{vertical() ? ratios[ratioIndex()].label.split(' : ').reverse().join(' : ') : ratios[ratioIndex()].label}</span>
             </div>
           </div>
-          <div class="canvas-footer"><div class="tip"><span>✦</span> Drag frame to position · Drag corners to resize · Scroll to zoom · Space + drag to pan</div><div class="zoom-control"><button onClick={() => setZoom(z => Math.max(.2, z - .1))}>−</button><input type="range" min=".2" max="5" step=".01" value={zoom()} onInput={e => setZoom(+e.currentTarget.value)} /><span>{Math.round(zoom() * 100)}%</span><button onClick={resetView}>FIT</button></div></div>
+          <div class="canvas-footer"><div class="tip"><span>✦</span> Drag frame to position · Scroll to zoom · Paste an image to replace</div><div class="zoom-control"><button onClick={() => setZoom(z => Math.max(.2, z - .1))}>−</button><input type="range" min=".2" max="5" step=".01" value={zoom()} onInput={e => setZoom(+e.currentTarget.value)} /><span>{Math.round(zoom() * 100)}%</span><button onClick={resetView}>FIT</button></div></div>
         </section>
 
         <RecentPanel />
