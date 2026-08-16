@@ -246,7 +246,8 @@ const App: Component = () => {
         </aside>
 
         <section class="canvas-area">
-          <div class={`editor ${drag()?.kind === 'pan' ? 'panning' : ''}`} ref={editorRef} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onWheel={wheel} onPointerDown={e => { if (e.target === editor) startDrag(e, 'pan'); }}>
+          <div class={`editor ${drag()?.kind === 'pan' ? 'panning' : ''} ${dropActive() ? 'drop-active' : ''}`} ref={editorRef} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onWheel={wheel} onPointerDown={e => { if (e.target === editor) startDrag(e, 'pan'); }} onDragEnter={e => { e.preventDefault(); setDropActive(true); }} onDragOver={e => { e.preventDefault(); e.dataTransfer!.dropEffect = 'copy'; setDropActive(true); }} onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropActive(false); }} onDrop={e => { e.preventDefault(); setDropActive(false); upload(e.dataTransfer?.files[0]); }}>
+            <Show when={dropActive()}><div class="editor-drop-overlay"><div><span>↓</span><b>DROP TO REPLACE IMAGE</b><small>The current image will be closed</small></div></div></Show>
             <div class="image-wrap" style={{ left: `${origin().x}px`, top: `${origin().y}px`, width: `${image()!.width * scale()}px`, height: `${image()!.height * scale()}px` }}><img src={image()!.url} draggable={false} /></div>
             <div class="shade top" style={{ height: `${Math.max(0, screenFrame().y)}px` }}></div>
             <div class="crop-frame" style={{ left: `${screenFrame().x}px`, top: `${screenFrame().y}px`, width: `${screenFrame().w}px`, height: `${screenFrame().h}px` }} onPointerDown={e => startDrag(e, 'frame')}>
