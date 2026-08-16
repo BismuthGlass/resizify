@@ -225,9 +225,6 @@ func (a *app) save(w http.ResponseWriter, r *http.Request) {
 	output := uniquePath(a.outDir, name)
 
 	background := "white"
-	if ext == ".png" || ext == ".webp" {
-		background = "none"
-	}
 	geometry := fmt.Sprintf("%dx%d%+d%+d!", width, height, x, y)
 	cmd := exec.Command("magick", info.Path+"[0]", "-auto-orient", "+repage", "-crop", geometry, "-background", background, "-flatten", "+repage", output)
 	if data, err := cmd.CombinedOutput(); err != nil {
