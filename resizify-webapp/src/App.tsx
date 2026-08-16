@@ -203,6 +203,13 @@ const App: Component = () => {
     onCleanup(() => { observer?.disconnect(); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); });
   });
 
+  const RecentPanel: Component = () => <aside class="recent-panel">
+    <div class="recent-heading"><span>LATEST OUTPUTS</span><small>{outputs().length}</small></div>
+    <Show when={outputs().length} fallback={<div class="recent-empty"><span>□</span><p>Saved images will appear here.</p></div>}>
+      <div class="recent-grid">{outputs().map(output => <button class="recent-image" title={output.name} onClick={() => setPreview(output)}><img src={output.url} loading="lazy" /><span>{output.name}</span></button>)}</div>
+    </Show>
+  </aside>;
+
   return <div class="app-shell">
     <header class="topbar">
       <div class="brand"><span class="brand-mark"><i></i><i></i></span><span>RESIZIFY</span></div>
@@ -213,7 +220,7 @@ const App: Component = () => {
     </header>
 
     <Show when={image()} fallback={
-      <main class="empty-page">
+      <div class="front-workspace"><main class="empty-page">
         <section class={`drop-card ${dropActive() ? 'active' : ''}`} onDragOver={e => { e.preventDefault(); setDropActive(true); }} onDragLeave={() => setDropActive(false)} onDrop={e => { e.preventDefault(); setDropActive(false); upload(e.dataTransfer?.files[0]); }}>
           <div class="upload-icon"><span></span></div>
           <div class="eyebrow">IMAGE RESIZING UTILITY</div>
@@ -224,7 +231,7 @@ const App: Component = () => {
           <Show when={error()}><div class="alert error">{error()}</div></Show>
           <div class="formats"><span>1 : 1</span><i></i><span>4 : 3</span><i></i><span>3 : 2</span><i></i><span>16 : 9</span></div>
         </section>
-      </main>
+      </main><RecentPanel /></div>
     }>
       <main class="workspace">
         <aside class="sidebar">
@@ -251,12 +258,7 @@ const App: Component = () => {
           <div class="canvas-footer"><div class="tip"><span>✦</span> Drag frame to position · Drag corners to resize · Scroll to zoom · Space + drag to pan</div><div class="zoom-control"><button onClick={() => setZoom(z => Math.max(.2, z - .1))}>−</button><input type="range" min=".2" max="5" step=".01" value={zoom()} onInput={e => setZoom(+e.currentTarget.value)} /><span>{Math.round(zoom() * 100)}%</span><button onClick={resetView}>FIT</button></div></div>
         </section>
 
-        <aside class="recent-panel">
-          <div class="recent-heading"><span>LATEST OUTPUTS</span><small>{outputs().length}</small></div>
-          <Show when={outputs().length} fallback={<div class="recent-empty"><span>□</span><p>Saved images will appear here.</p></div>}>
-            <div class="recent-grid">{outputs().map(output => <button class="recent-image" title={output.name} onClick={() => setPreview(output)}><img src={output.url} loading="lazy" /><span>{output.name}</span></button>)}</div>
-          </Show>
-        </aside>
+        <RecentPanel />
       </main>
     </Show>
     <Show when={preview()}>{output => <div class="preview-backdrop" onClick={() => setPreview(undefined)}><div class="preview-modal" onClick={e => e.stopPropagation()}><div class="preview-header"><span>{output().name}</span><button onClick={() => setPreview(undefined)} aria-label="Close preview">×</button></div><div class="preview-image-wrap"><img src={output().url} /></div></div></div>}</Show>
