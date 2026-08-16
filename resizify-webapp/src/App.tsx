@@ -236,7 +236,7 @@ const App: Component = () => {
       <main class="workspace">
         <aside class="sidebar">
           <section><label class="section-label">ASPECT RATIO</label><div class="ratio-list">
-            {ratios.map((r, i) => <button class={ratioIndex() === i ? 'selected' : ''} onClick={() => chooseRatio(i)}><span class="ratio-shape" style={{ 'aspect-ratio': `${r.value}` }}></span><b>{r.label}</b><small>{ratioIndex() === i ? 'SELECTED' : ''}</small></button>)}
+            {ratios.map((r, i) => <button class={ratioIndex() === i ? 'selected' : ''} onClick={() => chooseRatio(i)}><span class="ratio-shape" style={{ 'aspect-ratio': `${r.value}` }}></span><b>{r.label}</b></button>)}
           </div></section>
           <section><label class="section-label">ORIENTATION</label><button class="tool-row" onClick={flip}><span class="tool-icon">↔</span><span><b>Flip frame</b><small>{vertical() ? 'Portrait' : 'Landscape'}</small></span><kbd>F</kbd></button></section>
           <section><label class="section-label">FIT</label><div class="two-buttons"><button onClick={() => fitFrame('cover')}><span>◩</span><b>Cover</b></button><button onClick={() => fitFrame('contain')}><span>□</span><b>Contain</b></button></div><button class="tool-row compact" onClick={center}><span class="tool-icon">⌖</span><b>Center frame</b></button></section>
