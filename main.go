@@ -26,8 +26,8 @@ import (
 	"time"
 )
 
-//go:embed all:web
-var webFiles embed.FS
+//go:embed all:resizify-webapp/dist
+var distFiles embed.FS
 
 type imageInfo struct {
 	ID       string `json:"id"`
@@ -93,11 +93,11 @@ func main() {
 	mux.HandleFunc("POST /api/open-output", a.openOutput)
 	mux.HandleFunc("DELETE /api/images/{id}", a.remove)
 
-	web, err := fs.Sub(webFiles, "web")
+	dist, err := fs.Sub(distFiles, "resizify-webapp/dist")
 	if err != nil {
 		log.Fatal(err)
 	}
-	mux.Handle("/", spaHandler(web))
+	mux.Handle("/", spaHandler(dist))
 
 	addr := os.Getenv("RESIZIFY_ADDR")
 	if *port > 0 {
