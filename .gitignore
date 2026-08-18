@@ -7,8 +7,9 @@
 *.test
 *.out
 
-# Frontend dependencies
+# Frontend dependencies and generated build
 /resizify-webapp/node_modules/
+/resizify-webapp/dist/
 
 # Environment files
 .env
