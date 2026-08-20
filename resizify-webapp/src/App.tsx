@@ -35,6 +35,7 @@ const App: Component = () => {
   const [dropActive, setDropActive] = createSignal(false);
   const [outputs, setOutputs] = createSignal<OutputInfo[]>([]);
   const [preview, setPreview] = createSignal<OutputInfo>();
+  const [previewCopied, setPreviewCopied] = createSignal(false);
   let spaceDown = false;
   let observer: ResizeObserver | undefined;
 
@@ -149,6 +150,26 @@ const App: Component = () => {
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not open output directory'); }
   };
 
+  const copyOutput = (output: OutputInfo) => {
+    setPreviewCopied(false);
+    const png = fetch(output.url).then(async response => {
+      if (!response.ok) throw new Error('Could not load image');
+      const blob = await response.blob();
+      if (blob.type === 'image/png') return blob;
+      const bitmap = await createImageBitmap(blob);
+      const canvas = document.createElement('canvas');
+      canvas.width = bitmap.width; canvas.height = bitmap.height;
+      canvas.getContext('2d')!.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      return await new Promise<Blob>((resolve, reject) => canvas.toBlob(result => result ? resolve(result) : reject(new Error('Could not convert image')), 'image/png'));
+    });
+    try {
+      navigator.clipboard.write([new ClipboardItem({ 'image/png': png })])
+        .then(() => { setPreviewCopied(true); window.setTimeout(() => setPreviewCopied(false), 1500); })
+        .catch(() => setError('Could not copy image to clipboard'));
+    } catch { setError('Could not copy image to clipboard'); }
+  };
+
   const save = async () => {
     const img = image(); if (!img) return;
     setBusy(true); setError(''); setMessage('');
@@ -205,6 +226,7 @@ const App: Component = () => {
     loadOutputs();
     const down = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setPreview(undefined);
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && preview()) { e.preventDefault(); copyOutput(preview()!); }
       if (e.key === 'Enter' && image() && !preview() && !busy()) { e.preventDefault(); save(); }
       if (e.code === 'Space' && !(e.target instanceof HTMLInputElement)) { spaceDown = true; e.preventDefault(); }
       if (e.key.toLowerCase() === 'f' && !(e.target instanceof HTMLInputElement) && image()) flip();
@@ -222,7 +244,7 @@ const App: Component = () => {
   const RecentPanel: Component = () => <aside class="recent-panel">
     <div class="recent-heading"><span>LATEST OUTPUTS</span><small>{outputs().length}</small></div>
     <Show when={outputs().length} fallback={<div class="recent-empty"><span>□</span><p>Saved images will appear here.</p></div>}>
-      <div class="recent-grid">{outputs().map(output => <button class="recent-image" title={output.name} onClick={() => setPreview(output)}><img src={output.url} loading="lazy" /><span>{output.name}</span></button>)}</div>
+      <div class="recent-grid">{outputs().map(output => <button class="recent-image" title={output.name} onClick={() => { setPreviewCopied(false); setPreview(output); }}><img src={output.url} loading="lazy" /><span>{output.name}</span></button>)}</div>
     </Show>
   </aside>;
 
@@ -278,7 +300,7 @@ const App: Component = () => {
         <RecentPanel />
       </main>
     </Show>
-    <Show when={preview()}>{output => <div class="preview-backdrop" onClick={() => setPreview(undefined)}><div class="preview-modal" onClick={e => e.stopPropagation()}><div class="preview-header"><div><span>{output().name}</span><small>{aspectRatioLabel(output().width, output().height)}</small></div><button onClick={() => setPreview(undefined)} aria-label="Close preview">×</button></div><div class="preview-image-wrap"><img src={output().url} /></div></div></div>}</Show>
+    <Show when={preview()}>{output => <div class="preview-backdrop" onClick={() => setPreview(undefined)}><div class="preview-modal" onClick={e => e.stopPropagation()}><div class="preview-header"><div><span>{output().name}</span><small>{aspectRatioLabel(output().width, output().height)}</small><Show when={previewCopied()}><b class="preview-copy-status">COPIED</b></Show></div><button onClick={() => setPreview(undefined)} aria-label="Close preview">×</button></div><div class="preview-image-wrap"><img src={output().url} /></div></div></div>}</Show>
     <input ref={input} type="file" accept="image/*" hidden onChange={e => upload(e.currentTarget.files?.[0])} />
   </div>;
 };
