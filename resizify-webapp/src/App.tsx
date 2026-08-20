@@ -3,7 +3,17 @@ import { Component, Show, createSignal, onCleanup, onMount } from 'solid-js';
 type ImageInfo = { id: string; name: string; width: number; height: number; url: string };
 type Frame = { x: number; y: number; w: number; h: number };
 type Drag = { kind: 'frame' | 'pan' | 'resize'; handle?: string; sx: number; sy: number; frame: Frame; panX: number; panY: number };
-type OutputInfo = { name: string; url: string; created: string };
+type OutputInfo = { name: string; url: string; created: string; width: number; height: number };
+
+const aspectRatioLabel = (width: number, height: number) => {
+  if (!width || !height) return '';
+  const supported = [[1, 1], [4, 3], [3, 4], [3, 2], [2, 3], [16, 9], [9, 16]];
+  const actual = width / height;
+  const [w, h] = supported.reduce((best, candidate) =>
+    Math.abs(actual - candidate[0] / candidate[1]) < Math.abs(actual - best[0] / best[1]) ? candidate : best
+  );
+  return `${w} : ${h}`;
+};
 
 const ratios = [{ label: '1 : 1', value: 1 }, { label: '4 : 3', value: 4 / 3 }, { label: '3 : 2', value: 3 / 2 }, { label: '16 : 9', value: 16 / 9 }];
 
@@ -267,7 +277,7 @@ const App: Component = () => {
         <RecentPanel />
       </main>
     </Show>
-    <Show when={preview()}>{output => <div class="preview-backdrop" onClick={() => setPreview(undefined)}><div class="preview-modal" onClick={e => e.stopPropagation()}><div class="preview-header"><span>{output().name}</span><button onClick={() => setPreview(undefined)} aria-label="Close preview">×</button></div><div class="preview-image-wrap"><img src={output().url} /></div></div></div>}</Show>
+    <Show when={preview()}>{output => <div class="preview-backdrop" onClick={() => setPreview(undefined)}><div class="preview-modal" onClick={e => e.stopPropagation()}><div class="preview-header"><div><span>{output().name}</span><small>{aspectRatioLabel(output().width, output().height)}</small></div><button onClick={() => setPreview(undefined)} aria-label="Close preview">×</button></div><div class="preview-image-wrap"><img src={output().url} /></div></div></div>}</Show>
     <input ref={input} type="file" accept="image/*" hidden onChange={e => upload(e.currentTarget.files?.[0])} />
   </div>;
 };

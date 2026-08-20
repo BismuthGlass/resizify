@@ -58,6 +58,9 @@ type outputInfo struct {
 	Name    string    `json:"name"`
 	URL     string    `json:"url"`
 	Created time.Time `json:"created"`
+	Width   int       `json:"width"`
+	Height  int       `json:"height"`
+	Path    string    `json:"-"`
 }
 
 func main() {
@@ -251,11 +254,14 @@ func (a *app) outputs(w http.ResponseWriter, _ *http.Request) {
 		if err != nil {
 			continue
 		}
-		items = append(items, outputInfo{Name: entry.Name(), URL: "/api/outputs/" + url.PathEscape(entry.Name()), Created: info.ModTime()})
+		items = append(items, outputInfo{Name: entry.Name(), URL: "/api/outputs/" + url.PathEscape(entry.Name()), Created: info.ModTime(), Path: filepath.Join(a.outDir, entry.Name())})
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].Created.After(items[j].Created) })
 	if len(items) > 12 {
 		items = items[:12]
+	}
+	for i := range items {
+		items[i].Width, items[i].Height, _, _ = identify(items[i].Path)
 	}
 	writeJSON(w, items)
 }
