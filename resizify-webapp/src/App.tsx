@@ -205,6 +205,7 @@ const App: Component = () => {
     loadOutputs();
     const down = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setPreview(undefined);
+      if (e.key === 'Enter' && image() && !preview() && !busy()) { e.preventDefault(); save(); }
       if (e.code === 'Space' && !(e.target instanceof HTMLInputElement)) { spaceDown = true; e.preventDefault(); }
       if (e.key.toLowerCase() === 'f' && !(e.target instanceof HTMLInputElement) && image()) flip();
     };
