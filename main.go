@@ -66,6 +66,7 @@ type outputInfo struct {
 func main() {
 	port := flag.Int("port", 0, "HTTP port (overrides RESIZIFY_ADDR)")
 	openBrowser := flag.Bool("open", false, "open the application in the default browser")
+	baseDir := flag.String("base-dir", "", "directory for Resizify data (default ~/.resizify)")
 	flag.Parse()
 	if *port < 0 || *port > 65535 {
 		log.Fatal("port must be between 1 and 65535")
@@ -77,14 +78,21 @@ func main() {
 	}
 	defer os.RemoveAll(tempDir)
 
-	outDir := os.Getenv("RESIZIFY_OUTPUT_DIR")
-	if outDir == "" {
-		outDir = "output"
+	if *baseDir == "" {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			log.Fatalf("Could not find home directory: %v", err)
+		}
+		*baseDir = filepath.Join(homeDir, ".resizify")
 	}
+	absoluteBaseDir, err := filepath.Abs(*baseDir)
+	if err != nil {
+		log.Fatalf("Could not resolve base directory: %v", err)
+	}
+	outDir := filepath.Join(absoluteBaseDir, "output")
 	if err := os.MkdirAll(outDir, 0755); err != nil {
 		log.Fatal(err)
 	}
-	outDir, _ = filepath.Abs(outDir)
 
 	a := &app{images: make(map[string]imageInfo), tempDir: tempDir, outDir: outDir}
 	mux := http.NewServeMux()
