@@ -150,6 +150,11 @@ const App: Component = () => {
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not open output directory'); }
   };
 
+  const openPreview = (output: OutputInfo) => {
+    setPreviewCopied(false);
+    setPreview(output);
+  };
+
   const copyOutput = (output: OutputInfo) => {
     setPreviewCopied(false);
     const png = fetch(output.url).then(async response => {
@@ -227,6 +232,10 @@ const App: Component = () => {
     const down = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setPreview(undefined);
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && preview()) { e.preventDefault(); copyOutput(preview()!); }
+      if ((e.ctrlKey || e.metaKey) && /^[1-5]$/.test(e.key)) {
+        const output = outputs()[Number(e.key) - 1];
+        if (output) { e.preventDefault(); openPreview(output); }
+      }
       if (e.key === 'Enter' && image() && !preview() && !busy()) { e.preventDefault(); save(); }
       if (e.code === 'Space' && !(e.target instanceof HTMLInputElement)) { spaceDown = true; e.preventDefault(); }
       if (e.key.toLowerCase() === 'f' && !(e.target instanceof HTMLInputElement) && image()) flip();
@@ -244,7 +253,7 @@ const App: Component = () => {
   const RecentPanel: Component = () => <aside class="recent-panel">
     <div class="recent-heading"><span>LATEST OUTPUTS</span><small>{outputs().length}</small></div>
     <Show when={outputs().length} fallback={<div class="recent-empty"><span>□</span><p>Saved images will appear here.</p></div>}>
-      <div class="recent-grid">{outputs().map(output => <button class="recent-image" title={output.name} onClick={() => { setPreviewCopied(false); setPreview(output); }}><img src={output.url} loading="lazy" /><span>{output.name}</span></button>)}</div>
+      <div class="recent-grid">{outputs().map(output => <button class="recent-image" title={output.name} onClick={() => openPreview(output)}><img src={output.url} loading="lazy" /><span>{output.name}</span></button>)}</div>
     </Show>
   </aside>;
 
