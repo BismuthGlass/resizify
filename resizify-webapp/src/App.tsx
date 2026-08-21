@@ -292,6 +292,7 @@ const App: Component = () => {
     }>
       <main class="workspace">
         <aside class="sidebar">
+          <div class="sidebar-controls">
           <section><label class="section-label">ASPECT RATIO</label><div class="ratio-list">
             {ratios.map((r, i) => <button class={ratioIndex() === i ? 'selected' : ''} onClick={() => chooseRatio(i)}><span class="ratio-shape" style={{ 'aspect-ratio': `${r.value}` }}></span><b>{r.label}</b></button>)}
           </div></section>
@@ -305,7 +306,7 @@ const App: Component = () => {
               <label><span>GRAVITY</span><select value={textGravity()} disabled={!textEnabled()} onInput={e => setTextGravity(e.currentTarget.value)}>{gravities.map(gravity => <option value={gravity}>{gravity.replace(/([a-z])([A-Z])/g, '$1 $2')}</option>)}</select></label>
             </div>
           </section>
-          <div class="sidebar-spacer"></div>
+          </div>
           <div class="save-area"><div class="output-size"><span>OUTPUT FRAME</span><b>{Math.round(frame().w)} × {Math.round(frame().h)} px</b></div><button class="primary save-button" disabled={busy()} onClick={save}>{busy() ? 'SAVING…' : 'SAVE IMAGE'} <b>↗</b></button><button class="open-output-button" onClick={openOutput}><span>▰</span> OPEN OUTPUT FOLDER</button><Show when={error()}><div class="alert error">{error()}</div></Show></div>
         </aside>
 
