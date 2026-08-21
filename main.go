@@ -47,11 +47,14 @@ type app struct {
 }
 
 type saveRequest struct {
-	ID     string  `json:"id"`
-	X      float64 `json:"x"`
-	Y      float64 `json:"y"`
-	Width  float64 `json:"width"`
-	Height float64 `json:"height"`
+	ID          string  `json:"id"`
+	X           float64 `json:"x"`
+	Y           float64 `json:"y"`
+	Width       float64 `json:"width"`
+	Height      float64 `json:"height"`
+	TextEnabled bool    `json:"textEnabled"`
+	Text        string  `json:"text"`
+	Gravity     string  `json:"gravity"`
 }
 
 type outputInfo struct {
@@ -220,6 +223,10 @@ func (a *app) save(w http.ResponseWriter, r *http.Request) {
 		fail(w, "Invalid frame size", 400)
 		return
 	}
+	if req.TextEnabled && (len(req.Text) > 1000 || !validGravity(req.Gravity)) {
+		fail(w, "Invalid text settings", 400)
+		return
+	}
 
 	x, y := intRound(req.X), intRound(req.Y)
 	width, height := max(1, intRound(req.Width)), max(1, intRound(req.Height))
@@ -237,7 +244,14 @@ func (a *app) save(w http.ResponseWriter, r *http.Request) {
 
 	background := "white"
 	geometry := fmt.Sprintf("%dx%d%+d%+d!", width, height, x, y)
-	cmd := exec.Command("magick", info.Path+"[0]", "-auto-orient", "+repage", "-crop", geometry, "-background", background, "-flatten", "+repage", output)
+	args := []string{info.Path + "[0]", "-auto-orient", "+repage", "-crop", geometry, "-background", background, "-flatten", "+repage"}
+	if req.TextEnabled {
+		pointSize := max(1, intRound(float64(height)*40/1500))
+		offset := max(1, intRound(float64(height)*40/1500))
+		args = append(args, "-font", "/System/Library/Fonts/Supplemental/Arial.ttf", "-pointsize", strconv.Itoa(pointSize), "-fill", "white", "-gravity", req.Gravity, "-annotate", fmt.Sprintf("+0+%d", offset), req.Text)
+	}
+	args = append(args, output)
+	cmd := exec.Command("magick", args...)
 	if data, err := cmd.CombinedOutput(); err != nil {
 		log.Printf("magick: %v: %s", err, data)
 		fail(w, "ImageMagick could not save the image", 500)
@@ -245,6 +259,15 @@ func (a *app) save(w http.ResponseWriter, r *http.Request) {
 	}
 	outputName := filepath.Base(output)
 	writeJSON(w, map[string]string{"name": outputName, "path": output, "url": "/api/outputs/" + url.PathEscape(outputName)})
+}
+
+func validGravity(gravity string) bool {
+	switch gravity {
+	case "NorthWest", "North", "NorthEast", "West", "Center", "East", "SouthWest", "South", "SouthEast":
+		return true
+	default:
+		return false
+	}
 }
 
 func (a *app) outputs(w http.ResponseWriter, _ *http.Request) {

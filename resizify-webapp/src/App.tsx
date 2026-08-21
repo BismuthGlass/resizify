@@ -16,6 +16,7 @@ const aspectRatioLabel = (width: number, height: number) => {
 };
 
 const ratios = [{ label: '1 : 1', value: 1 }, { label: '4 : 3', value: 4 / 3 }, { label: '3 : 2', value: 3 / 2 }, { label: '16 : 9', value: 16 / 9 }];
+const gravities = ['NorthWest', 'North', 'NorthEast', 'West', 'Center', 'East', 'SouthWest', 'South', 'SouthEast'];
 
 const App: Component = () => {
   let editor!: HTMLDivElement;
@@ -25,6 +26,9 @@ const App: Component = () => {
   const [ratioIndex, setRatioIndex] = createSignal(1);
   const [vertical, setVertical] = createSignal(false);
   const [clamp, setClamp] = createSignal(true);
+  const [textEnabled, setTextEnabled] = createSignal(false);
+  const [text, setText] = createSignal('');
+  const [textGravity, setTextGravity] = createSignal('South');
   const [zoom, setZoom] = createSignal(1);
   const [pan, setPan] = createSignal({ x: 0, y: 0 });
   const [viewport, setViewport] = createSignal({ w: 900, h: 600 });
@@ -180,7 +184,11 @@ const App: Component = () => {
     setBusy(true); setError(''); setMessage('');
     try {
       const f = frame();
-      const response = await fetch('/api/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: img.id, x: f.x, y: f.y, width: f.w, height: f.h }) });
+      const response = await fetch('/api/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: img.id, x: f.x, y: f.y, width: f.w, height: f.h, textEnabled: textEnabled(), text: text(), gravity: textGravity() })
+      });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Save failed');
       setMessage(`Saved ${body.name}`);
@@ -230,15 +238,16 @@ const App: Component = () => {
   onMount(() => {
     loadOutputs();
     const down = (e: KeyboardEvent) => {
+      const editing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement;
       if (e.key === 'Escape') setPreview(undefined);
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && preview()) { e.preventDefault(); copyOutput(preview()!); }
       if ((e.ctrlKey || e.metaKey) && /^[1-5]$/.test(e.key)) {
         const output = outputs()[Number(e.key) - 1];
         if (output) { e.preventDefault(); openPreview(output); }
       }
-      if (e.key === 'Enter' && image() && !preview() && !busy()) { e.preventDefault(); save(); }
-      if (e.code === 'Space' && !(e.target instanceof HTMLInputElement)) { spaceDown = true; e.preventDefault(); }
-      if (e.key.toLowerCase() === 'f' && !(e.target instanceof HTMLInputElement) && image()) flip();
+      if (e.key === 'Enter' && image() && !preview() && !busy() && !editing) { e.preventDefault(); save(); }
+      if (e.code === 'Space' && !editing) { spaceDown = true; e.preventDefault(); }
+      if (e.key.toLowerCase() === 'f' && !editing && image()) flip();
     };
     const up = (e: KeyboardEvent) => { if (e.code === 'Space') spaceDown = false; };
     const paste = (e: ClipboardEvent) => {
@@ -288,6 +297,13 @@ const App: Component = () => {
           <section><label class="section-label">ORIENTATION</label><button class="tool-row" onClick={flip}><span class="tool-icon">↔</span><span><b>Flip frame</b><small>{vertical() ? 'Portrait' : 'Landscape'}</small></span><kbd>F</kbd></button></section>
           <section><label class="section-label">FIT</label><div class="two-buttons"><button onClick={() => fitFrame('cover')}><span>◩</span><b>Cover</b></button><button onClick={() => fitFrame('contain')}><span>□</span><b>Contain</b></button></div><button class="tool-row compact" onClick={center}><span class="tool-icon">⌖</span><b>Center frame</b></button></section>
           <section><label class="section-label">BOUNDARIES</label><label class="switch-row"><span><b>Clamp to image</b><small>Keep frame inside edges</small></span><input type="checkbox" checked={clamp()} onInput={e => { setClamp(e.currentTarget.checked); if (e.currentTarget.checked) fitFrame('cover'); }} /><i></i></label></section>
+          <section class="text-section">
+            <label class="section-label text-heading"><span>TEXT</span><input type="checkbox" checked={textEnabled()} onInput={e => setTextEnabled(e.currentTarget.checked)} /></label>
+            <div class="text-controls">
+              <label><span>CONTENT</span><input type="text" maxLength={1000} placeholder="Hello world" value={text()} disabled={!textEnabled()} onInput={e => setText(e.currentTarget.value)} /></label>
+              <label><span>GRAVITY</span><select value={textGravity()} disabled={!textEnabled()} onInput={e => setTextGravity(e.currentTarget.value)}>{gravities.map(gravity => <option value={gravity}>{gravity.replace(/([a-z])([A-Z])/g, '$1 $2')}</option>)}</select></label>
+            </div>
+          </section>
           <div class="sidebar-spacer"></div>
           <div class="save-area"><div class="output-size"><span>OUTPUT FRAME</span><b>{Math.round(frame().w)} × {Math.round(frame().h)} px</b></div><button class="primary save-button" disabled={busy()} onClick={save}>{busy() ? 'SAVING…' : 'SAVE IMAGE'} <b>↗</b></button><button class="open-output-button" onClick={openOutput}><span>▰</span> OPEN OUTPUT FOLDER</button><Show when={message()}><div class="alert success">✓ {message()}</div></Show><Show when={error()}><div class="alert error">{error()}</div></Show></div>
         </aside>
