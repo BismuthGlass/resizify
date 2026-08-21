@@ -1,4 +1,5 @@
 import { Component, Show, createSignal, onCleanup, onMount } from 'solid-js';
+import { ToastHost, createToastEngine } from './toasts';
 
 type ImageInfo = { id: string; name: string; width: number; height: number; url: string };
 type Frame = { x: number; y: number; w: number; h: number };
@@ -21,6 +22,7 @@ const gravities = ['NorthWest', 'North', 'NorthEast', 'West', 'Center', 'East', 
 const App: Component = () => {
   let editor!: HTMLDivElement;
   let input!: HTMLInputElement;
+  const toastEngine = createToastEngine();
   const [image, setImage] = createSignal<ImageInfo>();
   const [frame, setFrame] = createSignal<Frame>({ x: 0, y: 0, w: 1, h: 1 });
   const [ratioIndex, setRatioIndex] = createSignal(1);
@@ -34,7 +36,6 @@ const App: Component = () => {
   const [viewport, setViewport] = createSignal({ w: 900, h: 600 });
   const [drag, setDrag] = createSignal<Drag>();
   const [busy, setBusy] = createSignal(false);
-  const [message, setMessage] = createSignal('');
   const [error, setError] = createSignal('');
   const [dropActive, setDropActive] = createSignal(false);
   const [outputs, setOutputs] = createSignal<OutputInfo[]>([]);
@@ -111,7 +112,7 @@ const App: Component = () => {
 
   const upload = async (file?: File) => {
     if (!file || !file.type.startsWith('image/')) { setError('Please choose an image file.'); return; }
-    setBusy(true); setError(''); setMessage('');
+    setBusy(true); setError('');
     const data = new FormData(); data.append('image', file);
     try {
       const response = await fetch('/api/upload', { method: 'POST', body: data });
@@ -135,7 +136,7 @@ const App: Component = () => {
 
   const close = () => {
     const img = image(); if (img) fetch(`/api/images/${img.id}`, { method: 'DELETE' });
-    setImage(undefined); setMessage(''); setError('');
+    setImage(undefined); setError('');
   };
 
   const loadOutputs = async () => {
@@ -181,7 +182,7 @@ const App: Component = () => {
 
   const save = async () => {
     const img = image(); if (!img) return;
-    setBusy(true); setError(''); setMessage('');
+    setBusy(true); setError('');
     try {
       const f = frame();
       const response = await fetch('/api/save', {
@@ -191,7 +192,7 @@ const App: Component = () => {
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Save failed');
-      setMessage(`Saved ${body.name}`);
+      toastEngine.show({ title: 'IMAGE SAVED', message: body.name, image: body.url });
       await loadOutputs();
     } catch (e) { setError(e instanceof Error ? e.message : 'Save failed'); }
     finally { setBusy(false); }
@@ -305,7 +306,7 @@ const App: Component = () => {
             </div>
           </section>
           <div class="sidebar-spacer"></div>
-          <div class="save-area"><div class="output-size"><span>OUTPUT FRAME</span><b>{Math.round(frame().w)} × {Math.round(frame().h)} px</b></div><button class="primary save-button" disabled={busy()} onClick={save}>{busy() ? 'SAVING…' : 'SAVE IMAGE'} <b>↗</b></button><button class="open-output-button" onClick={openOutput}><span>▰</span> OPEN OUTPUT FOLDER</button><Show when={message()}><div class="alert success">✓ {message()}</div></Show><Show when={error()}><div class="alert error">{error()}</div></Show></div>
+          <div class="save-area"><div class="output-size"><span>OUTPUT FRAME</span><b>{Math.round(frame().w)} × {Math.round(frame().h)} px</b></div><button class="primary save-button" disabled={busy()} onClick={save}>{busy() ? 'SAVING…' : 'SAVE IMAGE'} <b>↗</b></button><button class="open-output-button" onClick={openOutput}><span>▰</span> OPEN OUTPUT FOLDER</button><Show when={error()}><div class="alert error">{error()}</div></Show></div>
         </aside>
 
         <section class="canvas-area">
@@ -326,6 +327,7 @@ const App: Component = () => {
       </main>
     </Show>
     <Show when={preview()}>{output => <div class="preview-backdrop" onClick={() => setPreview(undefined)}><div class="preview-modal" onClick={e => e.stopPropagation()}><div class="preview-header"><div><span>{output().name}</span><small>{aspectRatioLabel(output().width, output().height)}</small><Show when={previewCopied()}><b class="preview-copy-status">COPIED</b></Show></div><button onClick={() => setPreview(undefined)} aria-label="Close preview">×</button></div><div class="preview-image-wrap"><img src={output().url} /></div></div></div>}</Show>
+    <ToastHost engine={toastEngine} />
     <input ref={input} type="file" accept="image/*" hidden onChange={e => upload(e.currentTarget.files?.[0])} />
   </div>;
 };
