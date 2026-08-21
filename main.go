@@ -55,6 +55,7 @@ type saveRequest struct {
 	TextEnabled bool    `json:"textEnabled"`
 	Text        string  `json:"text"`
 	Gravity     string  `json:"gravity"`
+	FontScale   float64 `json:"fontScale"`
 }
 
 type outputInfo struct {
@@ -223,7 +224,11 @@ func (a *app) save(w http.ResponseWriter, r *http.Request) {
 		fail(w, "Invalid frame size", 400)
 		return
 	}
-	if req.TextEnabled && (len(req.Text) > 1000 || !validGravity(req.Gravity)) {
+	fontScale := req.FontScale
+	if fontScale == 0 {
+		fontScale = 1
+	}
+	if req.TextEnabled && (len(req.Text) > 1000 || !validGravity(req.Gravity) || fontScale < 0.25 || fontScale > 3) {
 		fail(w, "Invalid text settings", 400)
 		return
 	}
@@ -245,13 +250,17 @@ func (a *app) save(w http.ResponseWriter, r *http.Request) {
 	background := "white"
 	geometry := fmt.Sprintf("%dx%d%+d%+d!", width, height, x, y)
 	args := []string{info.Path + "[0]", "-auto-orient", "+repage", "-crop", geometry, "-background", background, "-flatten", "+repage"}
-	if req.TextEnabled {
-		pointSize := max(1, intRound(float64(height)*40/1500))
+	addText := req.TextEnabled && req.Text != ""
+	if addText {
+		pointSize := max(1, intRound(float64(height)*40/1500*fontScale))
 		offset := max(1, intRound(float64(height)*40/1500))
-		args = append(args, "-font", "/System/Library/Fonts/Supplemental/Arial.ttf", "-pointsize", strconv.Itoa(pointSize), "-fill", "white", "-gravity", req.Gravity, "-annotate", fmt.Sprintf("+0+%d", offset), req.Text)
+		args = append(args, "(", "-background", "none", "-font", "/System/Library/Fonts/Supplemental/Arial.ttf", "-pointsize", strconv.Itoa(pointSize), "-fill", "white", "-gravity", req.Gravity, "-size", fmt.Sprintf("%dx", width), "caption:@-", ")", "-gravity", req.Gravity, "-geometry", fmt.Sprintf("+0+%d", offset), "-composite")
 	}
 	args = append(args, output)
 	cmd := exec.Command("magick", args...)
+	if addText {
+		cmd.Stdin = strings.NewReader(req.Text)
+	}
 	if data, err := cmd.CombinedOutput(); err != nil {
 		log.Printf("magick: %v: %s", err, data)
 		fail(w, "ImageMagick could not save the image", 500)

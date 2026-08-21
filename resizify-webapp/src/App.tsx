@@ -31,6 +31,7 @@ const App: Component = () => {
   const [textEnabled, setTextEnabled] = createSignal(false);
   const [text, setText] = createSignal('');
   const [textGravity, setTextGravity] = createSignal('South');
+  const [fontScale, setFontScale] = createSignal(1);
   const [zoom, setZoom] = createSignal(1);
   const [pan, setPan] = createSignal({ x: 0, y: 0 });
   const [viewport, setViewport] = createSignal({ w: 900, h: 600 });
@@ -188,7 +189,7 @@ const App: Component = () => {
       const response = await fetch('/api/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: img.id, x: f.x, y: f.y, width: f.w, height: f.h, textEnabled: textEnabled(), text: text(), gravity: textGravity() })
+        body: JSON.stringify({ id: img.id, x: f.x, y: f.y, width: f.w, height: f.h, textEnabled: textEnabled(), text: text(), gravity: textGravity(), fontScale: fontScale() })
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Save failed');
@@ -302,7 +303,8 @@ const App: Component = () => {
           <section class="text-section">
             <label class="section-label text-heading"><span>TEXT</span><input type="checkbox" checked={textEnabled()} onInput={e => setTextEnabled(e.currentTarget.checked)} /></label>
             <div class="text-controls">
-              <label><span>CONTENT</span><input type="text" maxLength={1000} placeholder="Hello world" value={text()} disabled={!textEnabled()} onInput={e => setText(e.currentTarget.value)} /></label>
+              <label><span>CONTENT</span><textarea rows={3} maxLength={1000} placeholder="Hello world" value={text()} disabled={!textEnabled()} onInput={e => setText(e.currentTarget.value)} /></label>
+              <label><span class="font-size-label">FONT SIZE <b>{Math.max(1, Math.round(frame().h * 40 / 1500 * fontScale()))} PT</b></span><div class="font-size-control"><button disabled={!textEnabled()} onClick={() => setFontScale(value => Math.max(.25, +(value - .1).toFixed(2)))}>−</button><input type="range" min=".25" max="3" step=".05" value={fontScale()} disabled={!textEnabled()} onInput={e => setFontScale(+e.currentTarget.value)} /><button disabled={!textEnabled()} onClick={() => setFontScale(value => Math.min(3, +(value + .1).toFixed(2)))}>+</button></div></label>
               <label><span>GRAVITY</span><select value={textGravity()} disabled={!textEnabled()} onInput={e => setTextGravity(e.currentTarget.value)}>{gravities.map(gravity => <option value={gravity}>{gravity.replace(/([a-z])([A-Z])/g, '$1 $2')}</option>)}</select></label>
             </div>
           </section>
